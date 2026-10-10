@@ -27,7 +27,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Compute Version (Starting from 1.0.0)
+      - name: Compute Version
         id: vars
         shell: bash
         run: |
@@ -36,108 +36,9 @@ jobs:
           VERSION="1.0.$PATCH"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
-          echo "Building Version: $VERSION (Tag: v$VERSION)"
 
-      - name: Build Windows (win-x64) Single-File .exe
-        shell: bash
-        run: |
-          VER="${{ steps.vars.outputs.VERSION }}"
-          mkdir -p ./release-assets
-          dotnet publish ZoteroWorkflowApp.csproj \
-            -c Release \
-            -r win-x64 \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -p:IncludeAllContentForSelfExtract=true \
-            -p:EnableCompressionInSingleFile=true \
-            -p:Version=$VER \
-            -p:AssemblyVersion="$VER.0" \
-            -p:FileVersion="$VER.0" \
-            -o ./dist/win-x64
-          cp ./dist/win-x64/ZoteroWorkflowApp.exe "./release-assets/ZoteroWorkflowApp-v${VER}-win-x64.exe"
-
-      - name: Build Linux (linux-x64) .deb and .AppImage
-        shell: bash
-        run: |
-          VER="${{ steps.vars.outputs.VERSION }}"
-          dotnet publish ZoteroWorkflowApp.csproj \
-            -c Release \
-            -r linux-x64 \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -p:IncludeAllContentForSelfExtract=true \
-            -p:EnableCompressionInSingleFile=true \
-            -p:Version=$VER \
-            -p:AssemblyVersion="$VER.0" \
-            -p:FileVersion="$VER.0" \
-            -o ./dist/linux-x64
-          chmod +x ./dist/linux-x64/ZoteroWorkflowApp
-
-          # 1. Package Debian/Ubuntu .deb
-          DEB_DIR="./pkg-deb/zotero-workflow-app_${VER}_amd64"
-          mkdir -p "$DEB_DIR/DEBIAN"
-          mkdir -p "$DEB_DIR/usr/bin"
-          mkdir -p "$DEB_DIR/usr/share/applications"
-          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
-
-          cp ./dist/linux-x64/ZoteroWorkflowApp "$DEB_DIR/usr/bin/zotero-workflow-app"
-          chmod 755 "$DEB_DIR/usr/bin/zotero-workflow-app"
-          cp ./Assets/app.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/zotero-workflow-app.png"
-
-          cat <<EOF > "$DEB_DIR/DEBIAN/control"
-          Package: zotero-workflow-app
-          Version: ${VER}
-          Section: science
-          Priority: optional
-          Architecture: amd64
-          Depends: libc6, libstdc++6, libgtk-3-0
-          Recommends: libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37, libsoup-3.0-0
-          Maintainer: Zotero AI Research Studio <scholar@academic.org>
-          Description: Zotero AI Research Studio - Semantic Search, Knowledge Graph, Bibliometrics & Literature Review
-          EOF
-
-          cat <<EOF > "$DEB_DIR/usr/share/applications/zotero-workflow-app.desktop"
-          [Desktop Entry]
-          Name=Zotero AI Research Studio
-          Comment=Semantic Search, Knowledge Graph & Literature Review Workstation
-          Exec=/usr/bin/zotero-workflow-app
-          Icon=zotero-workflow-app
-          Terminal=false
-          Type=Application
-          Categories=Education;Science;Literature;
-          EOF
-
-          dpkg-deb --build --root-owner-group "$DEB_DIR" "./release-assets/ZoteroWorkflowApp-v${VER}-linux-amd64.deb"
-
-          # 2. Package Universal Linux .AppImage
-          APPDIR="./pkg-appimage/ZoteroWorkflowApp.AppDir"
-          mkdir -p "$APPDIR/usr/bin"
-          cp ./dist/linux-x64/ZoteroWorkflowApp "$APPDIR/usr/bin/ZoteroWorkflowApp"
-          chmod +x "$APPDIR/usr/bin/ZoteroWorkflowApp"
-          cp ./Assets/app.png "$APPDIR/zotero-workflow-app.png"
-          cp ./Assets/app.png "$APPDIR/.DirIcon"
-
-          cat << 'EOF' > "$APPDIR/AppRun"
-          #!/bin/sh
-          HERE="$(dirname "$(readlink -f "${0}")")"
-          exec "${HERE}/usr/bin/ZoteroWorkflowApp" "$@"
-          EOF
-          chmod +x "$APPDIR/AppRun"
-
-          cat <<EOF > "$APPDIR/zotero-workflow-app.desktop"
-          [Desktop Entry]
-          Name=Zotero AI Research Studio
-          Exec=ZoteroWorkflowApp
-          Icon=zotero-workflow-app
-          Type=Application
-          Categories=Education;Science;
-          EOF
-
-          curl -sL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o ./appimagetool
-          chmod +x ./appimagetool
-          ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "./release-assets/ZoteroWorkflowApp-v${VER}-linux-x86_64.AppImage"
+      - name: Build Windows (.exe) & Linux (.deb + .AppImage)
+        run: python3 scripts/package_all.py win-linux "${{ steps.vars.outputs.VERSION }}"
 
       - name: Upload Windows & Linux Assets
         uses: actions/upload-artifact@v4
@@ -145,9 +46,8 @@ jobs:
           name: assets-win-linux
           path: ./release-assets/*
 
-  # Job 2: Build macOS .app Bundles & Native .dmg Disk Images on macos-latest
+  # Job 2: Build macOS .app Bundles & Native .dmg Disk Images in Parallel on macos-latest
   build-macos-dmg:
-    needs: build-win-and-linux
     runs-on: macos-latest
 
     steps:
@@ -159,92 +59,13 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Build macOS .icns Icon & .dmg Installers (arm64 & x64)
+      - name: Build macOS (.dmg for Apple Silicon arm64 & Intel x64)
         shell: bash
         run: |
-          VER="${{ needs.build-win-and-linux.outputs.version }}"
-          mkdir -p ./release-assets
-
-          # Generate macOS .icns icon from Assets/app.png
-          mkdir -p ./AppIcon.iconset
-          sips -z 16 16     ./Assets/app.png --out ./AppIcon.iconset/icon_16x16.png
-          sips -z 32 32     ./Assets/app.png --out ./AppIcon.iconset/icon_16x16@2x.png
-          sips -z 32 32     ./Assets/app.png --out ./AppIcon.iconset/icon_32x32.png
-          sips -z 64 64     ./Assets/app.png --out ./AppIcon.iconset/icon_32x32@2x.png
-          sips -z 128 128   ./Assets/app.png --out ./AppIcon.iconset/icon_128x128.png
-          sips -z 256 256   ./Assets/app.png --out ./AppIcon.iconset/icon_128x128@2x.png
-          sips -z 256 256   ./Assets/app.png --out ./AppIcon.iconset/icon_256x256.png
-          sips -z 512 512   ./Assets/app.png --out ./AppIcon.iconset/icon_256x256@2x.png
-          iconutil -c icns ./AppIcon.iconset -o ./app.icns
-
-          for RID in osx-arm64 osx-x64; do
-            ARCH_LABEL="arm64"
-            if [ "$RID" = "osx-x64" ]; then ARCH_LABEL="x64"; fi
-
-            dotnet publish ZoteroWorkflowApp.csproj \
-              -c Release \
-              -r $RID \
-              --self-contained true \
-              -p:PublishSingleFile=true \
-              -p:IncludeNativeLibrariesForSelfExtract=true \
-              -p:IncludeAllContentForSelfExtract=true \
-              -p:EnableCompressionInSingleFile=true \
-              -p:Version=$VER \
-              -p:AssemblyVersion="$VER.0" \
-              -p:FileVersion="$VER.0" \
-              -o ./dist/$RID
-
-            DMG_STAGE="./dmg-stage-$RID"
-            APP_BUNDLE="$DMG_STAGE/Zotero AI Studio.app"
-            mkdir -p "$APP_BUNDLE/Contents/MacOS"
-            mkdir -p "$APP_BUNDLE/Contents/Resources"
-
-            cp ./dist/$RID/ZoteroWorkflowApp "$APP_BUNDLE/Contents/MacOS/ZoteroWorkflowApp"
-            chmod +x "$APP_BUNDLE/Contents/MacOS/ZoteroWorkflowApp"
-            cp ./app.icns "$APP_BUNDLE/Contents/Resources/app.icns"
-
-            cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key>
-            <string>Zotero AI Studio</string>
-            <key>CFBundleDisplayName</key>
-            <string>Zotero AI Research Studio</string>
-            <key>CFBundleIdentifier</key>
-            <string>org.academic.zoteroworkflowapp</string>
-            <key>CFBundleVersion</key>
-            <string>${VER}</string>
-            <key>CFBundleShortVersionString</key>
-            <string>${VER}</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleExecutable</key>
-            <string>ZoteroWorkflowApp</string>
-            <key>CFBundleIconFile</key>
-            <string>app.icns</string>
-            <key>NSHighResolutionCapable</key>
-            <true/>
-            <key>LSMinimumSystemVersion</key>
-            <string>11.0</string>
-          </dict>
-          </plist>
-          EOF
-
-            # Ad-hoc codesign the .app bundle so macOS Apple Silicon launches it cleanly
-            codesign --force --deep --sign - "$APP_BUNDLE"
-
-            # Add /Applications drag-and-drop shortcut inside DMG
-            ln -s /Applications "$DMG_STAGE/Applications"
-
-            hdiutil create \
-              -volname "Zotero AI Studio v${VER}" \
-              -srcfolder "$DMG_STAGE" \
-              -ov \
-              -format UDZO \
-              "./release-assets/ZoteroWorkflowApp-v${VER}-macos-${ARCH_LABEL}.dmg"
-          done
+          PATCH=$(( ${{ github.run_number }} - 1 ))
+          if [ $PATCH -lt 0 ]; then PATCH=0; fi
+          VER="1.0.$PATCH"
+          python3 scripts/package_all.py macos "$VER"
 
       - name: Upload macOS DMG Assets
         uses: actions/upload-artifact@v4
