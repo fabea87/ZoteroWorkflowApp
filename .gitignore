@@ -1,0 +1,28 @@
+# Build & Publish outputs
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+out/
+dist/
+
+# Visual Studio / Rider / VS Code caches
+.vs/
+.idea/
+.vscode/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# WebView2 & runtime caches
+*.WebView2/
+WebView2Cache/
+*.log
+*.pdb
+
+# Local databases & user settings (never commit secrets/API keys)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*settings*.json
