@@ -23,14 +23,13 @@ public class ExportService
                 var dst = Path.Combine(targetDirectory, jsName);
                 if (File.Exists(dst) && new FileInfo(dst).Length >= 1000) continue;
 
-                // 1. Try reading from embedded WPF Resource inside Single-File .exe
+                // 1. Try reading from EmbeddedResource inside Single-File executable (100% cross-platform)
                 try
                 {
-                    var uri = new Uri($"pack://application:,,,/Assets/{jsName}", UriKind.Absolute);
-                    var streamInfo = System.Windows.Application.GetResourceStream(uri);
-                    if (streamInfo?.Stream != null)
+                    var asm = typeof(ExportService).Assembly;
+                    using var s = asm.GetManifestResourceStream($"ZoteroWorkflowApp.Assets.{jsName}");
+                    if (s != null)
                     {
-                        using var s = streamInfo.Stream;
                         using var fs = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.Read);
                         s.CopyTo(fs);
                         continue;

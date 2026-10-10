@@ -85,27 +85,46 @@ public class ZoteroStorageResolver
         }
     }
 
+    private static IEnumerable<string> GetCandidateZoteroProfileDirs()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+        var roots = new[]
+        {
+            Path.Combine(appData, "Zotero", "Zotero", "Profiles"),
+            Path.Combine(userProfile, "Library", "Application Support", "Zotero", "Profiles"),
+            Path.Combine(userProfile, ".zotero", "zotero")
+        };
+
+        foreach (var r in roots)
+        {
+            if (Directory.Exists(r))
+            {
+                foreach (var sub in Directory.GetDirectories(r))
+                {
+                    yield return sub;
+                }
+            }
+        }
+    }
+
     public static string? DetectZoteroSqlitePath()
     {
         try
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var zoteroProfilesDir = Path.Combine(appData, "Zotero", "Zotero", "Profiles");
-            if (Directory.Exists(zoteroProfilesDir))
+            foreach (var dir in GetCandidateZoteroProfileDirs())
             {
-                foreach (var dir in Directory.GetDirectories(zoteroProfilesDir))
+                var prefs = Path.Combine(dir, "prefs.js");
+                if (File.Exists(prefs))
                 {
-                    var prefs = Path.Combine(dir, "prefs.js");
-                    if (File.Exists(prefs))
+                    var content = File.ReadAllText(prefs, Encoding.UTF8);
+                    var match = Regex.Match(content, @"user_pref\(""extensions\.zotero\.dataDir"",\s*""(.*?)""\);");
+                    if (match.Success)
                     {
-                        var content = File.ReadAllText(prefs, Encoding.UTF8);
-                        var match = Regex.Match(content, @"user_pref\(""extensions\.zotero\.dataDir"",\s*""(.*?)""\);");
-                        if (match.Success)
-                        {
-                            var rawDir = match.Groups[1].Value.Replace("\\\\", "\\");
-                            var candidate = Path.Combine(rawDir, "zotero.sqlite");
-                            if (File.Exists(candidate)) return candidate;
-                        }
+                        var rawDir = match.Groups[1].Value.Replace("\\\\", "\\");
+                        var candidate = Path.Combine(rawDir, "zotero.sqlite");
+                        if (File.Exists(candidate)) return candidate;
                     }
                 }
             }
@@ -120,22 +139,17 @@ public class ZoteroStorageResolver
     {
         try
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var zoteroProfilesDir = Path.Combine(appData, "Zotero", "Zotero", "Profiles");
-            if (Directory.Exists(zoteroProfilesDir))
+            foreach (var dir in GetCandidateZoteroProfileDirs())
             {
-                foreach (var dir in Directory.GetDirectories(zoteroProfilesDir))
+                var prefs = Path.Combine(dir, "prefs.js");
+                if (File.Exists(prefs))
                 {
-                    var prefs = Path.Combine(dir, "prefs.js");
-                    if (File.Exists(prefs))
+                    var content = File.ReadAllText(prefs, Encoding.UTF8);
+                    var match = Regex.Match(content, @"user_pref\(""extensions\.zotero\.baseAttachmentPath"",\s*""(.*?)""\);");
+                    if (match.Success)
                     {
-                        var content = File.ReadAllText(prefs, Encoding.UTF8);
-                        var match = Regex.Match(content, @"user_pref\(""extensions\.zotero\.baseAttachmentPath"",\s*""(.*?)""\);");
-                        if (match.Success)
-                        {
-                            var rawPath = match.Groups[1].Value.Replace("\\\\", "\\");
-                            if (Directory.Exists(rawPath)) return rawPath;
-                        }
+                        var rawPath = match.Groups[1].Value.Replace("\\\\", "\\");
+                        if (Directory.Exists(rawPath)) return rawPath;
                     }
                 }
             }

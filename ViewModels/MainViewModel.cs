@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ZoteroWorkflowApp.Models;
@@ -22,11 +22,18 @@ public partial class MainViewModel : ObservableObject
     private readonly BibliometricAndTextMiningService _biblioService;
     private CancellationTokenSource? _pipelineCts;
 
+    // Platform UI Dialog Delegates (wired by MainWindow)
+    public Func<string, string, Task>? ShowMessageDialogAsync { get; set; }
+    public Func<string, string, string, Task<string?>>? SaveFileDialogAsync { get; set; }
+    public Func<string, string?, Task<string?>>? OpenFileDialogAsync { get; set; }
+    public Func<string, string?, Task<string?>>? OpenFolderDialogAsync { get; set; }
+
     // Services status
     [ObservableProperty]
     private string _zotSeekStatusText = "正在检测 ZotSeek ...";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZotSeekDotColor))]
     private bool _isZotSeekOnline;
 
     [ObservableProperty]
@@ -65,18 +72,23 @@ public partial class MainViewModel : ObservableObject
 
     // 5-Stage Visual Pipeline Stepper ("Idle", "Running", "Done")
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Stage1Bg))]
     private string _stage1State = "Idle";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Stage2Bg))]
     private string _stage2State = "Idle";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Stage3Bg))]
     private string _stage3State = "Idle";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Stage4Bg))]
     private string _stage4State = "Idle";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Stage5Bg))]
     private string _stage5State = "Idle";
 
     // Session History Drawer
@@ -147,7 +159,54 @@ public partial class MainViewModel : ObservableObject
 
     // Tab control index: 0=Search, 1=Graph, 2=Review, 3=Chat, 4=Settings, 5=Logs
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsView0))]
+    [NotifyPropertyChangedFor(nameof(IsView1))]
+    [NotifyPropertyChangedFor(nameof(IsView2))]
+    [NotifyPropertyChangedFor(nameof(IsView3))]
+    [NotifyPropertyChangedFor(nameof(IsView4))]
+    [NotifyPropertyChangedFor(nameof(IsView5))]
+    [NotifyPropertyChangedFor(nameof(Nav0Bg))]
+    [NotifyPropertyChangedFor(nameof(Nav1Bg))]
+    [NotifyPropertyChangedFor(nameof(Nav2Bg))]
+    [NotifyPropertyChangedFor(nameof(Nav3Bg))]
+    [NotifyPropertyChangedFor(nameof(Nav4Bg))]
+    [NotifyPropertyChangedFor(nameof(Nav5Bg))]
     private int _selectedTabIndex = 0;
+
+    public bool IsView0 => SelectedTabIndex == 0;
+    public bool IsView1 => SelectedTabIndex == 1;
+    public bool IsView2 => SelectedTabIndex == 2;
+    public bool IsView3 => SelectedTabIndex == 3;
+    public bool IsView4 => SelectedTabIndex == 4;
+    public bool IsView5 => SelectedTabIndex == 5;
+
+    public string Nav0Bg => SelectedTabIndex == 0 ? "#E0F2FE" : "Transparent";
+    public string Nav1Bg => SelectedTabIndex == 1 ? "#E0F2FE" : "Transparent";
+    public string Nav2Bg => SelectedTabIndex == 2 ? "#E0F2FE" : "Transparent";
+    public string Nav3Bg => SelectedTabIndex == 3 ? "#E0F2FE" : "Transparent";
+    public string Nav4Bg => SelectedTabIndex == 4 ? "#E0F2FE" : "Transparent";
+    public string Nav5Bg => SelectedTabIndex == 5 ? "#E0F2FE" : "Transparent";
+
+    public string ZotSeekDotColor => IsZotSeekOnline ? "#059669" : "#DC2626";
+
+    public string Stage1Bg => Stage1State == "Running" ? "#E0F2FE" : (Stage1State == "Done" ? "#D1FAE5" : "#F1F5F9");
+    public string Stage2Bg => Stage2State == "Running" ? "#E0F2FE" : (Stage2State == "Done" ? "#D1FAE5" : "#F1F5F9");
+    public string Stage3Bg => Stage3State == "Running" ? "#E0F2FE" : (Stage3State == "Done" ? "#D1FAE5" : "#F1F5F9");
+    public string Stage4Bg => Stage4State == "Running" ? "#E0F2FE" : (Stage4State == "Done" ? "#D1FAE5" : "#F1F5F9");
+    public string Stage5Bg => Stage5State == "Running" ? "#E0F2FE" : (Stage5State == "Done" ? "#D1FAE5" : "#F1F5F9");
+
+    public List<string> SearchModeOptions { get; } = new() { "hybrid", "semantic", "keyword" };
+    public List<string> GranularityOptions { get; } = new() { "papers", "passages" };
+    public List<string> MarkdownThemeOptions { get; } = new() { "warm-paper", "obsidian", "academic-apa", "github-clean", "eye-care-green" };
+    public List<string> ReviewViewModeOptions { get; } = new() { "Split", "Wysiwyg", "Raw" };
+    public List<string> PdfEngineOptions { get; } = new() { "PdfPig", "Anydoc", "Auto" };
+    public List<string> ReasoningOptions { get; } = new() { "none", "low", "medium", "high" };
+    public List<string> LanguageOptions { get; } = new()
+    {
+        "中文 (学术规范，核心术语附英文)",
+        "English (Academic Publication Standard)",
+        "中英双语对照 (Bilingual Synthesis)"
+    };
 
     public MainViewModel()
     {
@@ -158,7 +217,6 @@ public partial class MainViewModel : ObservableObject
 
         Settings = SettingsService.LoadSettings();
 
-        // Sync defaults from saved settings
         if (Settings.DefaultSearchTopK <= 0) Settings.DefaultSearchTopK = 30;
         TopK = Settings.DefaultSearchTopK;
         MinSimilarity = Settings.DefaultMinSimilarity > 0 ? Settings.DefaultMinSimilarity : 0.25;
@@ -196,6 +254,38 @@ public partial class MainViewModel : ObservableObject
         RefreshWysiwygHtml();
         RefreshCorpusChatHtml();
         _ = CheckZotSeekStatusAsync();
+    }
+
+    public static void OpenUriOrFileCrossPlatform(string target)
+    {
+        if (string.IsNullOrWhiteSpace(target)) return;
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Process.Start(new ProcessStartInfo { FileName = target, UseShellExecute = true });
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                Process.Start("open", $"\"{target}\"");
+            }
+            else
+            {
+                Process.Start("xdg-open", $"\"{target}\"");
+            }
+        }
+        catch { }
+    }
+
+    private Task NotifyAsync(string title, string message)
+    {
+        StatusMessage = message.Replace("\r", " ").Replace("\n", " ");
+        Log($"[{title}] {message}");
+        if (ShowMessageDialogAsync != null)
+        {
+            return ShowMessageDialogAsync(title, message);
+        }
+        return Task.CompletedTask;
     }
 
     partial void OnSelectedItemChanged(ZotSeekResultItem? value)
@@ -279,7 +369,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedItem == null)
         {
-            MessageBox.Show("请先在左侧列表选中一篇文献！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("提示", "请先在左侧列表选中一篇文献！");
             return;
         }
         try
@@ -293,7 +383,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"提取预览失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("错误", $"提取预览失败: {ex.Message}");
         }
     }
 
@@ -310,12 +400,11 @@ public partial class MainViewModel : ObservableObject
             var list = new List<ResearchSessionEntry>();
             foreach (var mdFile in mdFiles)
             {
-                var fname = Path.GetFileNameWithoutExtension(mdFile); // _Synthesis_20261010_155504
+                var fname = Path.GetFileNameWithoutExtension(mdFile);
                 var stamp = fname.Replace("_Synthesis_", "");
                 var htmlCandidate = Path.Combine(vaultDir, $"_InteractiveGraph_{stamp}.html");
                 if (!File.Exists(htmlCandidate))
                 {
-                    // Fallback to closest html if timestamp differs by 1 sec
                     htmlCandidate = Directory.GetFiles(vaultDir, "_InteractiveGraph_*.html")
                         .OrderBy(f => Math.Abs((File.GetLastWriteTimeUtc(f) - File.GetLastWriteTimeUtc(mdFile)).TotalSeconds))
                         .FirstOrDefault() ?? "";
@@ -414,6 +503,7 @@ public partial class MainViewModel : ObservableObject
             ExportService.EnsureLocalJsLibraries(activeVaultDir);
             var previewFile = Path.Combine(activeVaultDir, "_LivePreview_Review.html");
             File.WriteAllText(previewFile, ReviewWysiwygHtml, System.Text.Encoding.UTF8);
+            ReviewWysiwygFilePath = "";
             ReviewWysiwygFilePath = previewFile;
         }
         catch { }
@@ -448,7 +538,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
-            MessageBox.Show("请输入搜索关键词或自然语言研究问题！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("提示", "请输入搜索关键词或自然语言研究问题！");
             return;
         }
 
@@ -483,7 +573,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log($"[检索错误] {ex.Message}");
-            MessageBox.Show(ex.Message, "检索错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            await NotifyAsync("检索错误", ex.Message);
             StatusMessage = "检索失败";
         }
         finally
@@ -540,7 +630,7 @@ public partial class MainViewModel : ObservableObject
         }
         if (seeds.Count == 0)
         {
-            MessageBox.Show("请先勾选 1～6 篇核心种子文献，再点击【❄️ 种子文献滚雪球扩充】！", "滚雪球提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("滚雪球提示", "请先勾选 1～6 篇核心种子文献，再点击【❄️ 种子文献滚雪球扩充】！");
             return;
         }
 
@@ -574,12 +664,12 @@ public partial class MainViewModel : ObservableObject
             UpdateSelectionStats();
             StatusMessage = $"滚雪球完成：新增 {addedCount} 篇相似文献";
             Log($"[滚雪球完成] 从 {seeds.Count} 篇种子文献扩充出 {addedCount} 篇新相关文献。");
-            MessageBox.Show($"已成功通过 ZotSeek 向量空间滚雪球扩充出 {addedCount} 篇新文献（其中含本地 PDF 的文献已自动为您勾选）！", "滚雪球扩充成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("滚雪球扩充成功", $"已成功通过 ZotSeek 向量空间滚雪球扩充出 {addedCount} 篇新文献（其中含本地 PDF 的文献已自动勾选）！");
         }
         catch (Exception ex)
         {
             Log($"[滚雪球异常] {ex.Message}");
-            MessageBox.Show($"滚雪球扩充失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            await NotifyAsync("错误", $"滚雪球扩充失败: {ex.Message}");
         }
         finally
         {
@@ -616,7 +706,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"查找相似文献失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("错误", $"查找相似文献失败: {ex.Message}");
         }
         finally
         {
@@ -636,35 +726,21 @@ public partial class MainViewModel : ObservableObject
     public void OpenInZotero(ZotSeekResultItem? item)
     {
         if (item == null) return;
-        try
-        {
-            var uri = item.Links?.Select ?? $"zotero://select/library/items/{item.ItemKey}";
-            Process.Start(new ProcessStartInfo { FileName = uri, UseShellExecute = true });
-            Log($"[Zotero定位] 在 Zotero 中定位文献: {item.Title}");
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"启动 Zotero 协议失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        var uri = item.Links?.Select ?? $"zotero://select/library/items/{item.ItemKey}";
+        OpenUriOrFileCrossPlatform(uri);
+        Log($"[Zotero定位] 在 Zotero 中定位文献: {item.Title}");
     }
 
     [RelayCommand]
-    public void OpenLocalPdf(ZotSeekResultItem? item)
+    public async Task OpenLocalPdf(ZotSeekResultItem? item)
     {
         if (item == null || string.IsNullOrEmpty(item.ResolvedPdfPath) || !File.Exists(item.ResolvedPdfPath))
         {
-            MessageBox.Show("该文献尚未关联有效的本地 PDF 文件。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("提示", "该文献尚未关联有效的本地 PDF 文件。");
             return;
         }
-        try
-        {
-            Process.Start(new ProcessStartInfo { FileName = item.ResolvedPdfPath, UseShellExecute = true });
-            Log($"[打开PDF] 已打开本地链接 PDF: {item.ResolvedPdfPath}");
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"打开 PDF 失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        OpenUriOrFileCrossPlatform(item.ResolvedPdfPath);
+        Log($"[打开PDF] 已打开本地链接 PDF: {item.ResolvedPdfPath}");
     }
 
     [RelayCommand]
@@ -686,13 +762,13 @@ public partial class MainViewModel : ObservableObject
         var selectedPapers = SearchResults.Where(x => x.IsSelected).ToList();
         if (selectedPapers.Count == 0)
         {
-            MessageBox.Show("请先勾选挑选至少 1 篇感兴趣的文献！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("提示", "请先勾选挑选至少 1 篇感兴趣的文献！");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(Settings.ApiKey) && !Settings.ApiUrl.Contains("localhost") && !Settings.ApiUrl.Contains("127.0.0.1"))
         {
-            MessageBox.Show("请先在【5. LLM、解析引擎与提示词配置】页签中配置有效的 LLM API Key！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("提示", "请先在【5. 模型与提示词设置】页签中配置有效的 LLM API Key！");
             SelectedTabIndex = 4;
             return;
         }
@@ -751,9 +827,7 @@ public partial class MainViewModel : ObservableObject
             await Task.WhenAll(tasks);
             Stage1State = "Done";
 
-            // Stage 2 & 3: CONCURRENT Execution of:
-            //   Branch A: [OpenAlex 文献计量 + 共引奠基文献挖掘 + 全文共现词/主题建模]
-            //   Branch B: [LLM 高阶知识图谱与学科演进拓扑抽取 (PromptKnowledgeGraph)]
+            // Stage 2 & 3: CONCURRENT Execution
             Stage2State = "Running";
             Stage3State = "Running";
             StatusMessage = "并发执行中：[OpenAlex计量 + 共引发现 + 共现词建模] ∥ [LLM 知识图谱与学科演进]...";
@@ -803,7 +877,6 @@ public partial class MainViewModel : ObservableObject
             var reviewMd = await _llmService.GenerateLiteratureReviewAsync(Settings, selectedPapers, graph, progressReporter, ct);
             Stage5State = "Done";
 
-            // Generate unified Obsidian Master Markdown Report and auto-save to Vault
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var fullObsidianReportMd = ExportService.GenerateObsidianMarkdown(SearchQuery, selectedPapers, graph, reviewMd);
             LiteratureReviewMarkdown = fullObsidianReportMd;
@@ -815,7 +888,6 @@ public partial class MainViewModel : ObservableObject
 
             ProcessingProgress = 95;
 
-            // Generate Interactive HTML Report
             ExportService.EnsureLocalJsLibraries(activeVaultDir);
             HtmlExportContent = ExportService.GenerateInteractiveHtml(SearchQuery, selectedPapers, graph, fullObsidianReportMd, SelectedMarkdownTheme);
             var autoSavedHtmlPath = Path.Combine(activeVaultDir, $"_InteractiveGraph_{timestamp}.html");
@@ -840,7 +912,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log($"[工作流失败] {ex.Message}");
-            MessageBox.Show($"执行过程中出现错误: {ex.Message}", "执行失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            await NotifyAsync("执行失败", $"执行过程中出现错误:\n{ex.Message}");
             StatusMessage = "执行出错";
         }
         finally
@@ -856,11 +928,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(CorpusChatQuestion))
         {
-            MessageBox.Show("请输入您想对已选文献集追问的问题，或点击上方的快捷追问按钮！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("提示", "请输入您想对已选文献集追问的问题，或点击上方的快捷追问按钮！");
             return;
         }
-        await ExecuteCorpusChatAsync(CorpusChatQuestion);
+        var q = CorpusChatQuestion;
         CorpusChatQuestion = "";
+        await ExecuteCorpusChatAsync(q);
     }
 
     [RelayCommand]
@@ -877,7 +950,7 @@ public partial class MainViewModel : ObservableObject
         var selectedPapers = SearchResults.Where(x => x.IsSelected).ToList();
         if (selectedPapers.Count == 0)
         {
-            MessageBox.Show("请先在【1. 语义检索与文献挑选】页签勾选要追问的文献！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("提示", "请先在【1. 语义检索与文献挑选】页签勾选要追问的文献！");
             SelectedTabIndex = 0;
             return;
         }
@@ -891,7 +964,6 @@ public partial class MainViewModel : ObservableObject
             var activeVaultDir = _anydocService.GetActiveVaultDirectory(Settings.MarkdownVaultPath);
             var engine = string.IsNullOrWhiteSpace(Settings.PdfExtractionEngine) ? "PdfPig" : Settings.PdfExtractionEngine;
 
-            // Ensure selected papers have extracted Markdown with [Page N]
             foreach (var p in selectedPapers.Where(p => string.IsNullOrEmpty(p.AnydocMarkdown)))
             {
                 try
@@ -933,7 +1005,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log($"[文献库追问失败] {ex.Message}");
-            MessageBox.Show($"追问执行失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            await NotifyAsync("错误", $"追问执行失败: {ex.Message}");
         }
         finally
         {
@@ -950,19 +1022,19 @@ public partial class MainViewModel : ObservableObject
             var html = ExportService.GenerateCorpusChatHtml(_chatMessages);
             var chatFile = Path.Combine(activeVaultDir, "_LivePreview_CorpusChat.html");
             File.WriteAllText(chatFile, html, System.Text.Encoding.UTF8);
-            CorpusChatHtmlFilePath = ""; // trigger change
+            CorpusChatHtmlFilePath = "";
             CorpusChatHtmlFilePath = chatFile;
         }
         catch { }
     }
 
     [RelayCommand]
-    public void AppendChatToReview()
+    public async Task AppendChatToReview()
     {
         var assistantMsgs = _chatMessages.Where(m => m.Role == "assistant").ToList();
         if (assistantMsgs.Count == 0)
         {
-            MessageBox.Show("当前尚无追问回答可追加。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("提示", "当前尚无追问回答可追加。");
             return;
         }
 
@@ -983,7 +1055,7 @@ public partial class MainViewModel : ObservableObject
 
         LiteratureReviewMarkdown = sb.ToString();
         Log("[已追加至综述] 文献库追问记录已追加至当前文献综述报告末尾。");
-        MessageBox.Show("已将全部追问与页码溯源回答追加至【3. 文献综述概要】末尾！", "追加成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        await NotifyAsync("追加成功", "已将全部追问与页码溯源回答追加至【3. 文献综述】末尾！");
     }
 
     [RelayCommand]
@@ -1005,47 +1077,37 @@ public partial class MainViewModel : ObservableObject
             sw.Stop();
             StatusMessage = $"LLM 连通成功 ({sw.ElapsedMilliseconds} ms)";
             Log($"[LLM 测试成功] 耗时 {sw.ElapsedMilliseconds}ms, 响应: {reply}");
-            MessageBox.Show($"连接成功！耗时: {sw.ElapsedMilliseconds} ms\n\n模型回复:\n{reply}", "LLM 连接测试通过", MessageBoxButton.OK, MessageBoxImage.Information);
+            await NotifyAsync("LLM 连接测试通过", $"连接成功！耗时: {sw.ElapsedMilliseconds} ms\n\n模型回复:\n{reply}");
         }
         catch (Exception ex)
         {
             StatusMessage = "LLM 连接测试失败";
             Log($"[LLM 测试失败] {ex.Message}");
-            MessageBox.Show($"连接失败:\n{ex.Message}", "LLM 连接测试错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            await NotifyAsync("LLM 连接测试错误", $"连接失败:\n{ex.Message}");
         }
     }
 
     [RelayCommand]
-    public void ResetPromptsToDefault()
+    public async Task ResetPromptsToDefault()
     {
-        var res = MessageBox.Show("确定要将【知识图谱】、【文献计量与文本挖掘】与【文献综述】三套提示词全部恢复为内置的高阶学术默认模板吗？", "确认恢复默认提示词", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (res == MessageBoxResult.Yes)
-        {
-            Settings.PromptKnowledgeGraph = LlmSettings.GetDefaultKnowledgeGraphPrompt();
-            Settings.PromptBibliometricAnalysis = LlmSettings.GetDefaultBibliometricPrompt();
-            Settings.PromptLiteratureReview = LlmSettings.GetDefaultLiteratureReviewPrompt();
-            OnPropertyChanged(nameof(Settings));
-            SettingsService.SaveSettings(Settings);
-            Log("[提示词已重置] 三套核心提示词已全部恢复为高阶学术默认模板。");
-        }
+        Settings.PromptKnowledgeGraph = LlmSettings.GetDefaultKnowledgeGraphPrompt();
+        Settings.PromptBibliometricAnalysis = LlmSettings.GetDefaultBibliometricPrompt();
+        Settings.PromptLiteratureReview = LlmSettings.GetDefaultLiteratureReviewPrompt();
+        OnPropertyChanged(nameof(Settings));
+        SettingsService.SaveSettings(Settings);
+        Log("[提示词已重置] 三套核心提示词已全部恢复为高阶学术默认模板。");
+        await NotifyAsync("已恢复默认提示词", "【知识图谱】、【文献计量与文本挖掘】与【文献综述】三套提示词已恢复为内置高阶学术默认模板。");
     }
 
     [RelayCommand]
-    public void BrowseZoteroSqlite()
+    public async Task BrowseZoteroSqliteAsync()
     {
-        var ofd = new Microsoft.Win32.OpenFileDialog
+        if (OpenFileDialogAsync == null) return;
+        var initDir = !string.IsNullOrWhiteSpace(Settings.ZoteroSqlitePath) ? Path.GetDirectoryName(Settings.ZoteroSqlitePath) : null;
+        var picked = await OpenFileDialogAsync("选择 Zotero 数据库文件 (zotero.sqlite)", initDir);
+        if (!string.IsNullOrWhiteSpace(picked))
         {
-            Title = "选择 Zotero 数据库文件 (zotero.sqlite)",
-            Filter = "Zotero SQLite Database (zotero.sqlite;*.sqlite)|zotero.sqlite;*.sqlite|All Files (*.*)|*.*",
-            FileName = "zotero.sqlite"
-        };
-        if (!string.IsNullOrWhiteSpace(Settings.ZoteroSqlitePath) && File.Exists(Settings.ZoteroSqlitePath))
-        {
-            ofd.InitialDirectory = Path.GetDirectoryName(Settings.ZoteroSqlitePath);
-        }
-        if (ofd.ShowDialog() == true)
-        {
-            Settings.ZoteroSqlitePath = ofd.FileName;
+            Settings.ZoteroSqlitePath = picked;
             OnPropertyChanged(nameof(Settings));
             _zotSeekClient.Resolver.SetCustomSqlitePath(Settings.ZoteroSqlitePath);
             Log($"[路径设置] 已指定 Zotero 数据库文件: {Settings.ZoteroSqlitePath}");
@@ -1053,19 +1115,13 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void BrowseLinkedAttachmentDir()
+    public async Task BrowseLinkedAttachmentDirAsync()
     {
-        var ofd = new Microsoft.Win32.OpenFolderDialog
+        if (OpenFolderDialogAsync == null) return;
+        var picked = await OpenFolderDialogAsync("选择 Zotero 链接 PDF 附件根目录 (baseAttachmentPath)", Settings.ZoteroLinkedAttachmentDir);
+        if (!string.IsNullOrWhiteSpace(picked))
         {
-            Title = "选择 Zotero 链接 PDF 附件根目录 (baseAttachmentPath)"
-        };
-        if (!string.IsNullOrWhiteSpace(Settings.ZoteroLinkedAttachmentDir) && Directory.Exists(Settings.ZoteroLinkedAttachmentDir))
-        {
-            ofd.InitialDirectory = Settings.ZoteroLinkedAttachmentDir;
-        }
-        if (ofd.ShowDialog() == true)
-        {
-            Settings.ZoteroLinkedAttachmentDir = ofd.FolderName;
+            Settings.ZoteroLinkedAttachmentDir = picked;
             OnPropertyChanged(nameof(Settings));
             _zotSeekClient.Resolver.SetCustomBaseAttachmentPath(Settings.ZoteroLinkedAttachmentDir);
             Log($"[路径设置] 已指定 Zotero 链接 PDF 根目录: {Settings.ZoteroLinkedAttachmentDir}");
@@ -1073,15 +1129,13 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void BrowseMarkdownVaultDir()
+    public async Task BrowseMarkdownVaultDirAsync()
     {
-        var ofd = new Microsoft.Win32.OpenFolderDialog
+        if (OpenFolderDialogAsync == null) return;
+        var picked = await OpenFolderDialogAsync("选择本地 Markdown 知识库 / Obsidian Vault 目录", Settings.MarkdownVaultPath);
+        if (!string.IsNullOrWhiteSpace(picked))
         {
-            Title = "选择本地 Markdown 知识库 / Obsidian Vault 目录"
-        };
-        if (ofd.ShowDialog() == true)
-        {
-            Settings.MarkdownVaultPath = ofd.FolderName;
+            Settings.MarkdownVaultPath = picked;
             OnPropertyChanged(nameof(Settings));
             Log($"[路径设置] 已指定 Obsidian Vault 目录: {Settings.MarkdownVaultPath}");
         }
@@ -1105,15 +1159,12 @@ public partial class MainViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(Settings));
         await CheckZotSeekStatusAsync();
-        MessageBox.Show(
+        await NotifyAsync("自动探测完成",
             $"已自动从本机 Zotero 配置文件 (prefs.js) 探测并更新：\n\n" +
             $"• ZotSeek 服务地址: {Settings.ZotSeekBaseUrl}\n" +
             $"• Zotero 数据库: {Settings.ZoteroSqlitePath}\n" +
             $"• 链接 PDF 根目录: {Settings.ZoteroLinkedAttachmentDir}\n" +
-            $"• 已映射 PDF 键数: {_zotSeekClient.Resolver.IndexedPdfCount}",
-            "自动探测完成",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+            $"• 已映射 PDF 键数: {_zotSeekClient.Resolver.IndexedPdfCount}");
     }
 
     [RelayCommand]
@@ -1128,144 +1179,91 @@ public partial class MainViewModel : ObservableObject
         SettingsService.SaveSettings(Settings);
         await CheckZotSeekStatusAsync();
         Log($"[设置已保存] 配置已写入用户文件夹: {SettingsService.UserFolderSettingsPath}");
-        MessageBox.Show($"所有设置保存成功！\n配置文件路径:\n{SettingsService.UserFolderSettingsPath}", "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        await NotifyAsync("保存成功", $"所有设置保存成功！\n配置文件路径:\n{SettingsService.UserFolderSettingsPath}");
     }
 
     [RelayCommand]
     public void OpenConfigJsonFile()
     {
-        try
-        {
-            SettingsService.SaveSettings(Settings);
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = SettingsService.UserFolderSettingsPath,
-                UseShellExecute = true
-            });
-            Log($"[打开配置文件] {SettingsService.UserFolderSettingsPath}");
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"打开配置文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        SettingsService.SaveSettings(Settings);
+        OpenUriOrFileCrossPlatform(SettingsService.UserFolderSettingsPath);
+        Log($"[打开配置文件] {SettingsService.UserFolderSettingsPath}");
     }
 
     [RelayCommand]
     public void OpenMarkdownVaultDirectory()
     {
-        try
-        {
-            var dir = _anydocService.GetActiveVaultDirectory(Settings.MarkdownVaultPath);
-            Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
-            Log($"[打开目录] 打开本地 Markdown Vault 目录: {dir}");
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"打开目录失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        var dir = _anydocService.GetActiveVaultDirectory(Settings.MarkdownVaultPath);
+        OpenUriOrFileCrossPlatform(dir);
+        Log($"[打开目录] 打开本地 Markdown Vault 目录: {dir}");
     }
 
     [RelayCommand]
-    public void ExportMarkdownFile()
+    public async Task ExportMarkdownFileAsync()
     {
         if (string.IsNullOrWhiteSpace(LiteratureReviewMarkdown))
         {
-            MessageBox.Show("尚未生成文献综述内容，请先运行工作流！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("提示", "尚未生成文献综述内容，请先运行工作流！");
             return;
         }
+        if (SaveFileDialogAsync == null) return;
 
-        var sfd = new Microsoft.Win32.SaveFileDialog
+        var path = await SaveFileDialogAsync("导出 Obsidian Markdown", $"文献综述与知识图谱_{DateTime.Now:yyyyMMdd_HHmm}.md", "md");
+        if (!string.IsNullOrWhiteSpace(path))
         {
-            Filter = "Markdown Files (*.md)|*.md|All Files (*.*)|*.*",
-            FileName = $"文献综述与知识图谱_{DateTime.Now:yyyyMMdd_HHmm}.md"
-        };
-
-        if (sfd.ShowDialog() == true)
-        {
-            try
-            {
-                File.WriteAllText(sfd.FileName, LiteratureReviewMarkdown, System.Text.Encoding.UTF8);
-                Log($"[导出成功] Obsidian 规范 Markdown 已保存至: {sfd.FileName}");
-                MessageBox.Show("Markdown 文件导出成功！可直接放入 Obsidian 进行双链图谱联动。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"保存文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            await File.WriteAllTextAsync(path, LiteratureReviewMarkdown, System.Text.Encoding.UTF8);
+            Log($"[导出成功] Obsidian 规范 Markdown 已保存至: {path}");
+            await NotifyAsync("导出成功", $"Markdown 文件已保存至:\n{path}");
         }
     }
 
     [RelayCommand]
-    public void ExportStyledReviewHtmlFile()
+    public async Task ExportStyledReviewHtmlFileAsync()
     {
         if (string.IsNullOrWhiteSpace(LiteratureReviewMarkdown))
         {
-            MessageBox.Show("尚未生成文献综述内容！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("提示", "尚未生成文献综述内容！");
             return;
         }
+        if (SaveFileDialogAsync == null) return;
 
-        var sfd = new Microsoft.Win32.SaveFileDialog
+        var path = await SaveFileDialogAsync("导出样式化文献综述 HTML", $"文献综述精排文档_{SelectedMarkdownTheme}_{DateTime.Now:yyyyMMdd_HHmm}.html", "html");
+        if (!string.IsNullOrWhiteSpace(path))
         {
-            Filter = "HTML Document (*.html)|*.html",
-            FileName = $"文献综述精排文档_{SelectedMarkdownTheme}_{DateTime.Now:yyyyMMdd_HHmm}.html"
-        };
-
-        if (sfd.ShowDialog() == true)
-        {
-            try
-            {
-                var html = ExportService.GenerateWysiwygMarkdownHtml(LiteratureReviewMarkdown, SelectedMarkdownTheme, editable: false);
-                File.WriteAllText(sfd.FileName, html, System.Text.Encoding.UTF8);
-                Log($"[导出成功] 样式化文献综述 HTML ({SelectedMarkdownTheme}) 已保存至: {sfd.FileName}");
-                MessageBox.Show("样式化综述 HTML 导出成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"保存文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            var targetDir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(targetDir)) ExportService.EnsureLocalJsLibraries(targetDir);
+            var html = ExportService.GenerateWysiwygMarkdownHtml(LiteratureReviewMarkdown, SelectedMarkdownTheme, editable: false);
+            await File.WriteAllTextAsync(path, html, System.Text.Encoding.UTF8);
+            Log($"[导出成功] 样式化文献综述 HTML ({SelectedMarkdownTheme}) 已保存至: {path}");
+            await NotifyAsync("导出成功", $"样式化综述 HTML 已保存至:\n{path}");
         }
     }
 
     [RelayCommand]
-    public void ExportInteractiveHtmlFile()
+    public async Task ExportInteractiveHtmlFileAsync()
     {
         if (string.IsNullOrWhiteSpace(HtmlExportContent))
         {
-            MessageBox.Show("尚未生成交互式分析报告，请先运行工作流！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await NotifyAsync("提示", "尚未生成交互式分析报告，请先运行工作流！");
             return;
         }
+        if (SaveFileDialogAsync == null) return;
 
-        var sfd = new Microsoft.Win32.SaveFileDialog
+        var path = await SaveFileDialogAsync("导出交互式知识图谱 HTML 报告", $"学术演进知识图谱_{DateTime.Now:yyyyMMdd_HHmm}.html", "html");
+        if (!string.IsNullOrWhiteSpace(path))
         {
-            Filter = "HTML 文件 (*.html)|*.html|All Files (*.*)|*.*",
-            FileName = $"学术演进知识图谱_{DateTime.Now:yyyyMMdd_HHmm}.html"
-        };
-
-        if (sfd.ShowDialog() == true)
-        {
-            try
-            {
-                var targetDir = Path.GetDirectoryName(sfd.FileName);
-                if (!string.IsNullOrEmpty(targetDir)) ExportService.EnsureLocalJsLibraries(targetDir);
-                File.WriteAllText(sfd.FileName, HtmlExportContent, System.Text.Encoding.UTF8);
-                Log($"[导出成功] 交互式多媒体 HTML 报告已保存至: {sfd.FileName}");
-                var res = MessageBox.Show("HTML 文件导出成功！是否立即在浏览器中打开？", "导出成功", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (res == MessageBoxResult.Yes)
-                {
-                    Process.Start(new ProcessStartInfo { FileName = sfd.FileName, UseShellExecute = true });
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"保存文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            var targetDir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(targetDir)) ExportService.EnsureLocalJsLibraries(targetDir);
+            await File.WriteAllTextAsync(path, HtmlExportContent, System.Text.Encoding.UTF8);
+            Log($"[导出成功] 交互式多媒体 HTML 报告已保存至: {path}");
+            OpenUriOrFileCrossPlatform(path);
         }
     }
 
     private void Log(string msg)
     {
         var line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
-        App.Current?.Dispatcher?.Invoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             ExecutionLogs.Add(line);
         });

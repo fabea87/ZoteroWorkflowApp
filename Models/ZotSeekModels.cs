@@ -77,6 +77,17 @@ public class ZotSeekResultItem
     public bool HasPdf => !string.IsNullOrEmpty(ResolvedPdfPath);
     public bool HasDoi => !string.IsNullOrEmpty(Doi);
     public bool HasMarkdown => !string.IsNullOrEmpty(AnydocMarkdownPath);
+
+    [JsonIgnore]
+    public string PdfBadgeText => HasPdf ? "✅ 本地PDF就绪" : "⚠️ 仅摘要";
+    [JsonIgnore]
+    public string PdfBadgeBg => HasPdf ? "#D1FAE5" : "#FEF2F2";
+    [JsonIgnore]
+    public string PdfBadgeFg => HasPdf ? "#065F46" : "#B91C1C";
+    [JsonIgnore]
+    public string PdfBadgeBorder => HasPdf ? "#6EE7B7" : "#FECACA";
+    [JsonIgnore]
+    public string SemanticScoreText => (SemanticScore ?? Score ?? 0.0).ToString("F3");
 }
 
 public class ZotSeekMatchedChunk

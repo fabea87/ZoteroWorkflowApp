@@ -292,10 +292,13 @@ public class AnydocService
         var tempRawMd = Path.Combine(Path.GetTempPath(), $"anydoc_{Guid.NewGuid():N}.md");
         try
         {
+            var isWin = OperatingSystem.IsWindows();
             var psi = new ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = $"/c npx -y @firecrawl/anydoc \"{inputFilePath}\" -o \"{tempRawMd}\"",
+                FileName = isWin ? "cmd.exe" : "/bin/sh",
+                Arguments = isWin
+                    ? $"/c npx -y @firecrawl/anydoc \"{inputFilePath}\" -o \"{tempRawMd}\""
+                    : $"-c \"npx -y @firecrawl/anydoc '{inputFilePath}' -o '{tempRawMd}'\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

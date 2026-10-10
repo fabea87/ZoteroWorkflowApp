@@ -1,4 +1,4 @@
-name: Build & Release Single-File EXE
+name: Build & Release Multi-Platform Single-File Binaries
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Source Code
@@ -25,55 +25,111 @@ jobs:
 
       - name: Compute Version (Starting from 1.0.0)
         id: vars
-        shell: pwsh
+        shell: bash
         run: |
-          $patch = [int]${{ github.run_number }} - 1
-          if ($patch -lt 0) { $patch = 0 }
-          $version = "1.0.$patch"
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          echo "TAG=v$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Building Version: $version (Tag: v$version)"
+          PATCH=$(( ${{ github.run_number }} - 1 ))
+          if [ $PATCH -lt 0 ]; then PATCH=0; fi
+          VERSION="1.0.$PATCH"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Building Version: $VERSION (Tag: v$VERSION)"
 
-      - name: Restore Dependencies
-        run: dotnet restore ZoteroWorkflowApp.csproj
-
-      - name: Publish Single-File Self-Contained Executable
-        shell: pwsh
+      - name: Build Windows (win-x64) Single-File EXE
+        shell: bash
         run: |
-          $ver = "${{ steps.vars.outputs.VERSION }}"
-          dotnet publish ZoteroWorkflowApp.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:IncludeAllContentForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:Version=$ver `
-            -p:AssemblyVersion="$ver.0" `
-            -p:FileVersion="$ver.0" `
-            -o ./dist
+          VER="${{ steps.vars.outputs.VERSION }}"
+          dotnet publish ZoteroWorkflowApp.csproj \
+            -c Release \
+            -r win-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:Version=$VER \
+            -p:AssemblyVersion="$VER.0" \
+            -p:FileVersion="$VER.0" \
+            -o ./dist/win-x64
+          mkdir -p ./release-assets
+          cp ./dist/win-x64/ZoteroWorkflowApp.exe "./release-assets/ZoteroWorkflowApp-v${VER}-win-x64.exe"
 
-          Copy-Item "./dist/ZoteroWorkflowApp.exe" "./dist/ZoteroWorkflowApp-v$ver-win-x64.exe"
+      - name: Build Linux (linux-x64) Single-File Binary
+        shell: bash
+        run: |
+          VER="${{ steps.vars.outputs.VERSION }}"
+          dotnet publish ZoteroWorkflowApp.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:Version=$VER \
+            -p:AssemblyVersion="$VER.0" \
+            -p:FileVersion="$VER.0" \
+            -o ./dist/linux-x64
+          chmod +x ./dist/linux-x64/ZoteroWorkflowApp
+          cp ./dist/linux-x64/ZoteroWorkflowApp "./release-assets/ZoteroWorkflowApp-v${VER}-linux-x64"
 
-      - name: Upload Single-File EXE Artifact
+      - name: Build macOS Apple Silicon (osx-arm64) Single-File Binary
+        shell: bash
+        run: |
+          VER="${{ steps.vars.outputs.VERSION }}"
+          dotnet publish ZoteroWorkflowApp.csproj \
+            -c Release \
+            -r osx-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:Version=$VER \
+            -p:AssemblyVersion="$VER.0" \
+            -p:FileVersion="$VER.0" \
+            -o ./dist/osx-arm64
+          chmod +x ./dist/osx-arm64/ZoteroWorkflowApp
+          cp ./dist/osx-arm64/ZoteroWorkflowApp "./release-assets/ZoteroWorkflowApp-v${VER}-macos-arm64"
+
+      - name: Build macOS Intel (osx-x64) Single-File Binary
+        shell: bash
+        run: |
+          VER="${{ steps.vars.outputs.VERSION }}"
+          dotnet publish ZoteroWorkflowApp.csproj \
+            -c Release \
+            -r osx-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:Version=$VER \
+            -p:AssemblyVersion="$VER.0" \
+            -p:FileVersion="$VER.0" \
+            -o ./dist/osx-x64
+          chmod +x ./dist/osx-x64/ZoteroWorkflowApp
+          cp ./dist/osx-x64/ZoteroWorkflowApp "./release-assets/ZoteroWorkflowApp-v${VER}-macos-x64"
+
+      - name: Upload Multi-Platform Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-win-x64
-          path: |
-            ./dist/ZoteroWorkflowApp.exe
-            ./dist/ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-win-x64.exe
+          name: ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-all-platforms
+          path: ./release-assets/*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.TAG }}
-          name: "Zotero AI Research Studio ${{ steps.vars.outputs.TAG }}"
+          name: "Zotero AI Research Studio ${{ steps.vars.outputs.TAG }} (Windows / macOS / Linux)"
           body: |
-            Automated single-file build for **Zotero AI Research Studio ${{ steps.vars.outputs.TAG }}** (`win-x64`, self-contained `.NET 8` executable).
-            - Commit: `${{ github.sha }}`
-            - Run Number: `#${{ github.run_number }}`
-          files: |
-            ./dist/ZoteroWorkflowApp.exe
-            ./dist/ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-win-x64.exe
+            Automated cross-platform single-file release for **Zotero AI Research Studio ${{ steps.vars.outputs.TAG }}** (powered by **Avalonia UI** + **NativeWebView**).
+
+            ### Included Single-File Binaries
+            - **Windows (`win-x64`)**: `ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-win-x64.exe` (Uses Edge WebView2)
+            - **macOS Apple Silicon (`osx-arm64`)**: `ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-macos-arm64` (Uses native `WKWebView`)
+            - **macOS Intel (`osx-x64`)**: `ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-macos-x64` (Uses native `WKWebView`)
+            - **Linux (`linux-x64`)**: `ZoteroWorkflowApp-v${{ steps.vars.outputs.VERSION }}-linux-x64` (Uses native `WebKit2GTK` / `libwebkit2gtk-4.1-0`)
+
+            > **Linux Note**: Ensure `libwebkit2gtk-4.1-0` (or `libwebkit2gtk-4.0`) and `libgtk-3-0` are installed so `NativeWebView` renders `vis-network` graphs inline (`sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libsoup-3.0-0`).
+          files: ./release-assets/*
           generate_release_notes: true

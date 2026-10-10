@@ -1,0 +1,582 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:ZoteroWorkflowApp.ViewModels"
+        mc:Ignorable="d"
+        x:Class="ZoteroWorkflowApp.MainWindow"
+        Title="Zotero AI Research Studio — 语义检索 · 知识图谱 · 文献计量 · 所见即所得综述工作站"
+        Icon="avares://ZoteroWorkflowApp/Assets/app.ico"
+        Height="900" Width="1520"
+        MinHeight="720" MinWidth="1180"
+        WindowStartupLocation="CenterScreen"
+        Background="#F1F5F9"
+        Foreground="#0F172A">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#0284C7" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="15,8" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0369A1" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#1E293B" />
+            <Setter Property="BorderBrush" Value="#94A3B8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Padding" Value="11,6" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E2E8F0" />
+            <Setter Property="Foreground" Value="#0F172A" />
+        </Style>
+
+        <Style Selector="Button.nav">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Foreground" Value="#1E293B" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Padding" Value="14,11" />
+            <Setter Property="Margin" Value="8,2" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#0F172A" />
+            <Setter Property="BorderBrush" Value="#94A3B8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,6" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- TOP BAR: 5-STAGE VISUAL PIPELINE STEPPER & SESSION HISTORY SWITCHER -->
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="18,9">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+
+                <!-- Brand Identity -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,22,0">
+                    <Image Source="avares://ZoteroWorkflowApp/Assets/app.png" Width="28" Height="28" Margin="0,0,9,0" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Zotero AI Studio" Foreground="#0F172A" FontWeight="Bold" FontSize="14.5" Margin="0,0,6,0" />
+                            <Border Background="#E0F2FE" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding AppVersionText}" Foreground="#0369A1" FontWeight="Bold" FontSize="10.5" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="Cross-Platform Academic Engine (Win/macOS/Linux)" Foreground="#64748B" FontSize="10.5" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 5-Stage Visual Pipeline Stepper -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <TextBlock Text="流水线阶段:" VerticalAlignment="Center" FontSize="12" FontWeight="Bold" Foreground="#475569" Margin="0,0,8,0" />
+
+                    <Border Background="{Binding Stage1Bg}" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,4,0">
+                        <TextBlock Text="① PDF转MD" FontSize="11.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                    </Border>
+                    <TextBlock Text="➔" VerticalAlignment="Center" Foreground="#94A3B8" Margin="0,0,4,0" FontSize="11" />
+
+                    <Border Background="{Binding Stage2Bg}" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,4,0">
+                        <TextBlock Text="② OpenAlex与共现词" FontSize="11.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                    </Border>
+                    <TextBlock Text="∥" VerticalAlignment="Center" Foreground="#0284C7" FontWeight="Bold" Margin="0,0,4,0" FontSize="11" />
+
+                    <Border Background="{Binding Stage3Bg}" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,4,0">
+                        <TextBlock Text="③ 知识图谱拓扑" FontSize="11.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                    </Border>
+                    <TextBlock Text="➔" VerticalAlignment="Center" Foreground="#94A3B8" Margin="0,0,4,0" FontSize="11" />
+
+                    <Border Background="{Binding Stage4Bg}" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,4,0">
+                        <TextBlock Text="④ 计量深度解读" FontSize="11.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                    </Border>
+                    <TextBlock Text="➔" VerticalAlignment="Center" Foreground="#94A3B8" Margin="0,0,4,0" FontSize="11" />
+
+                    <Border Background="{Binding Stage5Bg}" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="10,4">
+                        <TextBlock Text="⑤ 文献综述合成" FontSize="11.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Right: Session History Switcher & ZotSeek Status -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Text="🗂️ 历史研究档案:" VerticalAlignment="Center" FontSize="12.5" FontWeight="Bold" Foreground="#0369A1" Margin="0,0,6,0" />
+                    <ComboBox ItemsSource="{Binding HistorySessions}"
+                              SelectedItem="{Binding SelectedHistorySession}"
+                              Width="240" Margin="0,0,12,0" FontSize="12">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayTitle}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Border CornerRadius="14" Padding="10,4" Margin="0,0,8,0" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{Binding ZotSeekDotColor}" />
+                            <TextBlock Text="{Binding ZotSeekStatusText}" FontSize="11.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                        </StackPanel>
+                    </Border>
+                    <Button Content="🔄" Command="{Binding CheckZotSeekStatusCommand}" Classes="secondary" Padding="8,4" FontSize="12" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN WORKSPACE: LEFT SIDEBAR + RIGHT VIEWS -->
+        <Grid Grid.Row="1" ColumnDefinitions="220,*">
+
+            <!-- Left Sidebar Navigation Rail -->
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,0,1,0" Padding="0,12,0,12">
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Top" Text="工作台导航 (WORKSPACE)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="16,4,0,8" />
+
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button Content="🔍 1. 语义检索与文献挑选" Command="{Binding SwitchNavCommand}" CommandParameter="0" Background="{Binding Nav0Bg}" Classes="nav" />
+                        <Button Content="🌐 2. 知识图谱与学科演进" Command="{Binding SwitchNavCommand}" CommandParameter="1" Background="{Binding Nav1Bg}" Classes="nav" />
+                        <Button Content="📝 3. 文献综述 (所见即所得)" Command="{Binding SwitchNavCommand}" CommandParameter="2" Background="{Binding Nav2Bg}" Classes="nav" />
+                        <Button Content="💬 4. 文献库页码级追问" Command="{Binding SwitchNavCommand}" CommandParameter="3" Background="{Binding Nav3Bg}" Classes="nav" />
+                        <Button Content="⚙️ 5. 模型与提示词设置" Command="{Binding SwitchNavCommand}" CommandParameter="4" Background="{Binding Nav4Bg}" Classes="nav" />
+                        <Button Content="📋 6. 运行流水线日志" Command="{Binding SwitchNavCommand}" CommandParameter="5" Background="{Binding Nav5Bg}" Classes="nav" />
+                    </StackPanel>
+
+                    <Border DockPanel.Dock="Bottom" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Margin="12,8,12,4" Padding="12,10">
+                        <StackPanel>
+                            <TextBlock Text="📦 本地 Markdown 知识库" FontSize="12" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,4" />
+                            <TextBlock Text="所有提取全文、双链图谱与交互报告均自动实时归档。" FontSize="11" Foreground="#475569" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <Button Content="📁 打开本地 Vault 库" Command="{Binding OpenMarkdownVaultDirectoryCommand}" Classes="secondary" FontSize="11.5" HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
+            </Border>
+
+            <!-- RIGHT CONTENT AREA -->
+            <Grid Grid.Column="1">
+
+                <!-- VIEW 0: SEARCH & SELECTION (MASTER-DETAIL) -->
+                <Grid IsVisible="{Binding IsView0}" Margin="14" RowDefinitions="Auto,Auto,*">
+
+                    <!-- Search Input Bar -->
+                    <Border Grid.Row="0" Background="#FFFFFF" CornerRadius="10" Padding="12" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,10">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding SearchQuery}" FontSize="14" Margin="0,0,12,0" VerticalAlignment="Center" KeyDown="SearchBox_KeyDown" />
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="模式:" VerticalAlignment="Center" Foreground="#475569" FontWeight="SemiBold" Margin="0,0,5,0" />
+                                <ComboBox ItemsSource="{Binding SearchModeOptions}" SelectedItem="{Binding SelectedSearchMode}" Width="105" VerticalAlignment="Center" FontSize="12.5" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="粒度:" VerticalAlignment="Center" Foreground="#475569" FontWeight="SemiBold" Margin="0,0,5,0" />
+                                <ComboBox ItemsSource="{Binding GranularityOptions}" SelectedItem="{Binding SelectedGranularity}" Width="100" VerticalAlignment="Center" FontSize="12.5" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="TopK:" VerticalAlignment="Center" Foreground="#475569" FontWeight="SemiBold" Margin="0,0,5,0" />
+                                <TextBox Text="{Binding TopK}" Width="52" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="最小相似:" VerticalAlignment="Center" Foreground="#475569" FontWeight="SemiBold" Margin="0,0,5,0" />
+                                <TextBox Text="{Binding MinSimilarity}" Width="52" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <Button Grid.Column="5" Content="🔍 检索文献 (ZotSeek)" Command="{Binding ExecuteSearchCommand}" Classes="primary" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Actions & Stats Header -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#E0F2FE" BorderBrush="#7DD3FC" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,8,0">
+                                <TextBlock Text="{Binding SelectionStatsText}" FontWeight="Bold" FontSize="12.5" Foreground="#0369A1" VerticalAlignment="Center" />
+                            </Border>
+                            <Button Content="☑ 全选" Command="{Binding SelectAllCommand}" Classes="secondary" Margin="0,0,5,0" />
+                            <Button Content="📄 仅选有PDF" Command="{Binding SelectOnlyWithPdfCommand}" Classes="secondary" Margin="0,0,5,0" Foreground="#065F46" BorderBrush="#6EE7B7" Background="#ECFDF5" />
+                            <Button Content="☐ 清空" Command="{Binding DeselectAllCommand}" Classes="secondary" Margin="0,0,8,0" />
+                            <Button Content="❄️ 种子文献滚雪球扩充" Command="{Binding SnowballFromSelectedSeedsCommand}" Classes="secondary" Margin="0,0,8,0" Foreground="#0369A1" BorderBrush="#38BDF8" Background="#E0F2FE" />
+                            <Button Content="⬇ 按语义分" Command="{Binding SortByScoreDescCommand}" Classes="secondary" Margin="0,0,5,0" />
+                            <Button Content="⬇ 按年份" Command="{Binding SortByYearDescCommand}" Classes="secondary" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="⏹ 停止" Command="{Binding CancelPipelineCommand}" Classes="secondary" Foreground="#B91C1C" BorderBrush="#FCA5A5" Background="#FEF2F2" Margin="0,0,8,0" />
+                            <Button Content="🚀 全文解析 (.md) ➔ 构建高阶知识图谱与文献综述" Command="{Binding RunFullPipelineCommand}" Classes="primary" Background="#059669" FontSize="13" Padding="16,7" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Master-Detail Split View -->
+                    <Grid Grid.Row="2" ColumnDefinitions="6.2*,3.8*">
+                        <!-- Left: Paper List -->
+                        <Border Grid.Column="0" Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" Padding="6" Margin="0,0,10,0">
+                            <ListBox ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedItem}" Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#F8FAFC" CornerRadius="8" Padding="12,9" Margin="2,3" BorderBrush="#CBD5E1" BorderThickness="1">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Click="CheckBox_Click" VerticalAlignment="Top" Margin="2,2,10,0" />
+
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5" Foreground="#0F172A" TextWrapping="Wrap" Margin="0,0,0,5" />
+
+                                                    <WrapPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <Border Background="#E0F2FE" CornerRadius="4" Padding="6,2" Margin="0,0,6,3">
+                                                            <TextBlock Text="{Binding Authors}" Foreground="#0369A1" FontWeight="SemiBold" FontSize="11.5" />
+                                                        </Border>
+
+                                                        <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,3">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="年份: " Foreground="#475569" FontSize="11.5" />
+                                                                <TextBlock Text="{Binding Year}" Foreground="#0F172A" FontWeight="SemiBold" FontSize="11.5" />
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,3">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="匹配度: " Foreground="#475569" FontSize="11.5" />
+                                                                <TextBlock Text="{Binding SemanticScoreText}" Foreground="#0284C7" FontWeight="Bold" FontSize="11.5" />
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <Border Background="{Binding PdfBadgeBg}" BorderBrush="{Binding PdfBadgeBorder}" BorderThickness="1" CornerRadius="4" Padding="7,2" Margin="0,0,6,3" ToolTip.Tip="{Binding ResolvedPdfPath}">
+                                                            <TextBlock Text="{Binding PdfBadgeText}" Foreground="{Binding PdfBadgeFg}" FontSize="11.5" FontWeight="SemiBold" />
+                                                        </Border>
+                                                    </WrapPanel>
+
+                                                    <TextBlock Text="{Binding MatchedChunk.Snippet}" FontSize="12" Foreground="#475569" TextWrapping="Wrap" MaxLines="2" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
+                                                    <Button Content="❄️ 找相似" Command="{Binding $parent[Window].DataContext.SnowballSingleItemCommand}" CommandParameter="{Binding}" Classes="secondary" Foreground="#0369A1" BorderBrush="#7DD3FC" Background="#F0F9FF" Padding="8,3" FontSize="11.5" Margin="0,0,0,4" />
+                                                    <Button Content="📌 Zotero" Command="{Binding $parent[Window].DataContext.OpenInZoteroCommand}" CommandParameter="{Binding}" Classes="secondary" Padding="8,3" FontSize="11.5" Margin="0,0,0,4" />
+                                                    <Button Content="📄 打开PDF" Command="{Binding $parent[Window].DataContext.OpenLocalPdfCommand}" CommandParameter="{Binding}" Classes="secondary" Padding="8,3" FontSize="11.5" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <!-- Right: Master-Detail Paper Inspector -->
+                        <Border Grid.Column="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" Padding="14">
+                            <Grid RowDefinitions="Auto,Auto,*">
+                                <TextBlock Grid.Row="0" Text="📖 文献深度检视器 (Paper Inspector)" FontSize="14.5" FontWeight="Bold" Foreground="#0369A1" Margin="0,0,0,8" />
+
+                                <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Button Content="⚡ 立即提取并预览全文 (.md)" Command="{Binding PreviewSelectedPaperFullTextCommand}" Classes="secondary" Foreground="#065F46" BorderBrush="#6EE7B7" Background="#ECFDF5" FontSize="11.5" Margin="0,0,6,4" />
+                                    <Button Content="📌 在Zotero打开" Command="{Binding OpenInZoteroCommand}" CommandParameter="{Binding SelectedItem}" Classes="secondary" FontSize="11.5" Margin="0,0,6,4" />
+                                    <Button Content="📄 打开本地PDF" Command="{Binding OpenLocalPdfCommand}" CommandParameter="{Binding SelectedItem}" Classes="secondary" FontSize="11.5" Margin="0,0,0,4" />
+                                </WrapPanel>
+
+                                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="6">
+                                    <TextBox Text="{Binding SelectedPaperDetailMarkdown, Mode=OneWay}"
+                                             IsReadOnly="True"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="#1E293B"
+                                             FontSize="12.5" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- VIEW 1: INTERACTIVE KNOWLEDGE GRAPH -->
+                <Grid IsVisible="{Binding IsView1}" Margin="14" RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Background="#FFFFFF" CornerRadius="8" Padding="14,10" Margin="0,0,0,10" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="全景交互知识图谱 · 共现词与主题建模 · Connected Papers 网络 · OpenAlex 文献计量 · 学科演进矩阵"
+                                       FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center" Foreground="#0F172A" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="💾 导出交互 HTML 多媒体报告" Command="{Binding ExportInteractiveHtmlFileCommand}" Classes="primary" Margin="0,0,8,0" />
+                                <Button Content="💾 导出 Obsidian Markdown" Command="{Binding ExportMarkdownFileCommand}" Classes="secondary" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" ClipToBounds="True">
+                        <NativeWebView x:Name="GraphWebView" />
+                    </Border>
+                </Grid>
+
+                <!-- VIEW 2: LITERATURE REVIEW WYSIWYG & MARKDOWN -->
+                <Grid IsVisible="{Binding IsView2}" Margin="14" RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Background="#FFFFFF" CornerRadius="8" Padding="14,10" Margin="0,0,0,10" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="排版样式主题:" VerticalAlignment="Center" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,6,0" />
+                                <ComboBox ItemsSource="{Binding MarkdownThemeOptions}" SelectedItem="{Binding SelectedMarkdownTheme}" Width="165" VerticalAlignment="Center" Margin="0,0,14,0" FontSize="12.5" />
+
+                                <TextBlock Text="视图模式:" VerticalAlignment="Center" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,6,0" />
+                                <ComboBox x:Name="CmbReviewViewMode" ItemsSource="{Binding ReviewViewModeOptions}" SelectedItem="{Binding SelectedReviewViewMode}" SelectionChanged="CmbReviewViewMode_SelectionChanged" Width="130" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="12.5" />
+
+                                <CheckBox Content="允许直接在预览区编辑" IsChecked="{Binding IsWysiwygDirectEdit}" VerticalAlignment="Center" Foreground="#475569" FontWeight="SemiBold" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="💾 导出 Obsidian (.md)" Command="{Binding ExportMarkdownFileCommand}" Classes="primary" Margin="0,0,8,0" />
+                                <Button Content="🌐 导出当前排版 (.html)" Command="{Binding ExportStyledReviewHtmlFileCommand}" Classes="secondary" Margin="0,0,8,0" />
+                                <Button Content="📋 复制 Markdown" Click="CopyReviewText_Click" Classes="secondary" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1" x:Name="ReviewSplitGrid" ColumnDefinitions="4*,6*">
+                        <Border x:Name="BorderRawEditor" Grid.Column="0" Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" Padding="10" Margin="0,0,8,0">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Text="📝 Markdown 源文件 (实时同步至右侧所见即所得视图)" FontSize="12" FontWeight="Bold" Foreground="#475569" Margin="4,0,0,6" />
+                                <TextBox Grid.Row="1" x:Name="TxtReviewMarkdown"
+                                         Text="{Binding LiteratureReviewMarkdown}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Background="#F8FAFC"
+                                         Foreground="#0F172A"
+                                         FontSize="13.5" />
+                            </Grid>
+                        </Border>
+
+                        <Border x:Name="BorderWysiwygPreview" Grid.Column="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" ClipToBounds="True">
+                            <NativeWebView x:Name="ReviewWebView" />
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- VIEW 3: CORPUS PAGE-GROUNDED Q&A -->
+                <Grid IsVisible="{Binding IsView3}" Margin="14" RowDefinitions="Auto,*,Auto">
+                    <Border Grid.Row="0" Background="#FFFFFF" CornerRadius="8" Padding="14,10" Margin="0,0,0,10" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="快捷追问:" VerticalAlignment="Center" FontWeight="Bold" Foreground="#0369A1" Margin="0,0,8,0" />
+                                <Button Content="📊 研究设计、样本与统计模型对比表(附页码)"
+                                        Command="{Binding AskPresetCorpusQuestionCommand}"
+                                        CommandParameter="请系统梳理并对比当前所选文献的：1. 研究设计(实验/准实验/语料库/调查)；2. 研究对象与样本量；3. 测量工具/编码框架；4. 统计检验或计算模型；5. 核心结论。请以 Markdown 表格呈现，并附上精确到页码的 [PDF:Key, p.N] 标记。"
+                                        Classes="secondary" Margin="0,0,6,0" FontSize="12" />
+                                <Button Content="🔍 梳理存在分歧或矛盾的实证发现(附页码)"
+                                        Command="{Binding AskPresetCorpusQuestionCommand}"
+                                        CommandParameter="请深度对比这批文献中存在观点交锋、结论不一致或边界条件冲突的实证发现，分析产生差异的理论或方法论原因，并附上精确的 [PDF:Key, p.N] 原文页码溯源。"
+                                        Classes="secondary" Margin="0,0,6,0" FontSize="12" />
+                                <Button Content="🧪 核心变量/构念操作化与量表(附页码)"
+                                        Command="{Binding AskPresetCorpusQuestionCommand}"
+                                        CommandParameter="请提取并汇总这批文献中所有核心构念/变量（自变量、因变量、中介/调节变量或核心分析维度）的学术定义与具体操作化测量方式，并附上 [PDF:Key, p.N] 页码标记。"
+                                        Classes="secondary" Margin="0,0,6,0" FontSize="12" />
+                                <Button Content="✍️ 提炼3个 Research Gaps 与研究设计"
+                                        Command="{Binding AskPresetCorpusQuestionCommand}"
+                                        CommandParameter="请基于这批文献在样本、方法、情境或理论机制上的局限性（需引用原文页码 [PDF:Key, p.N]），为我设计 3 个具有高发表潜力的具体研究问题（RQs）及配套的研究设计与分析方案。"
+                                        Classes="secondary" FontSize="12" />
+                            </WrapPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="➕ 追加至文献综述" Command="{Binding AppendChatToReviewCommand}" Classes="secondary" Foreground="#065F46" BorderBrush="#6EE7B7" Background="#ECFDF5" Margin="0,0,6,0" FontSize="12" />
+                                <Button Content="🗑️ 清空" Command="{Binding ClearCorpusChatCommand}" Classes="secondary" FontSize="12" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" ClipToBounds="True" Margin="0,0,0,10">
+                        <NativeWebView x:Name="CorpusChatWebView" />
+                    </Border>
+
+                    <Border Grid.Row="2" Background="#FFFFFF" CornerRadius="8" Padding="12" BorderBrush="#CBD5E1" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding CorpusChatQuestion}" FontSize="14" Margin="0,0,12,0" VerticalAlignment="Center" KeyDown="CorpusChatBox_KeyDown" />
+                            <Button Grid.Column="1" Content="🚀 发送页码级溯源追问" Command="{Binding AskCorpusQuestionCommandCommand}" Classes="primary" Padding="20,8" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- VIEW 4: SETTINGS & PROMPTS -->
+                <ScrollViewer IsVisible="{Binding IsView4}" Margin="16">
+                    <StackPanel MaxWidth="1180" HorizontalAlignment="Left">
+
+                        <!-- Card 1: ZotSeek, Zotero Database & PDF Extraction Engine -->
+                        <Border Background="#FFFFFF" CornerRadius="10" Padding="20" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,16">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                                    <TextBlock Grid.Column="0" Text="1. ZotSeek 服务地址、Zotero 数据库位置与 PDF 全文解析引擎配置" FontSize="15.5" FontWeight="Bold" Foreground="#0369A1" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="🔍 一键自动探测本机 Zotero 与 ZotSeek 路径" Command="{Binding AutoDetectZoteroPathsCommand}" Classes="secondary" Foreground="#0369A1" BorderBrush="#7DD3FC" Background="#E0F2FE" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,380,Auto,*" Margin="0,0,0,10">
+                                    <TextBlock Grid.Column="0" Text="ZotSeek 服务地址 (HTTP URL):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.ZotSeekBaseUrl}" FontSize="13" />
+                                    <Button Grid.Column="2" Content="🔄 测试并刷新连接" Command="{Binding CheckZotSeekStatusCommand}" Classes="secondary" Margin="8,0,0,0" />
+                                    <TextBlock Grid.Column="3" Text="对应 Zotero 本地端口（默认 23119）上的 ZotSeek 插件接口。" VerticalAlignment="Center" Foreground="#64748B" FontSize="12" Margin="12,0,0,0" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,*,Auto" Margin="0,0,0,10">
+                                    <TextBlock Grid.Column="0" Text="Zotero 数据库 (zotero.sqlite):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.ZoteroSqlitePath}" FontSize="13" />
+                                    <Button Grid.Column="2" Content="📂 浏览选择..." Command="{Binding BrowseZoteroSqliteCommand}" Classes="secondary" Margin="8,0,0,0" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,*,Auto" Margin="0,0,0,10">
+                                    <TextBlock Grid.Column="0" Text="Zotero 链接 PDF 根目录:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.ZoteroLinkedAttachmentDir}" FontSize="13" />
+                                    <Button Grid.Column="2" Content="📂 浏览文件夹..." Command="{Binding BrowseLinkedAttachmentDirCommand}" Classes="secondary" Margin="8,0,0,0" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,*,Auto,Auto" Margin="0,0,0,10">
+                                    <TextBlock Grid.Column="0" Text="Obsidian Vault 本地库目录:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.MarkdownVaultPath}" FontSize="13" />
+                                    <Button Grid.Column="2" Content="📂 浏览文件夹..." Command="{Binding BrowseMarkdownVaultDirCommand}" Classes="secondary" Margin="8,0,0,0" />
+                                    <Button Grid.Column="3" Content="📁 打开当前库" Command="{Binding OpenMarkdownVaultDirectoryCommand}" Classes="secondary" Margin="6,0,0,0" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,*,Auto" Margin="0,0,0,14">
+                                    <TextBlock Grid.Column="0" Text="用户文件夹 JSON 配置文件:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding UserConfigFilePath, Mode=OneWay}" IsReadOnly="True" Background="#F1F5F9" FontSize="12.5" />
+                                    <Button Grid.Column="2" Content="📄 打开 JSON 配置文件" Command="{Binding OpenConfigJsonFileCommand}" Classes="secondary" Margin="8,0,0,0" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,110,170,110,150,*" Margin="0,0,0,12">
+                                    <TextBlock Grid.Column="0" Text="默认检索返回数 (TopK):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.DefaultSearchTopK}" />
+
+                                    <TextBlock Grid.Column="2" Text="默认最小语义相似度:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="20,0,0,0" />
+                                    <TextBox Grid.Column="3" Text="{Binding Settings.DefaultMinSimilarity}" />
+
+                                    <TextBlock Grid.Column="4" Text="并发解析线程数:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="20,0,0,0" />
+                                    <TextBox Grid.Column="5" Text="{Binding Settings.MaxParallelExtractions}" Width="80" HorizontalAlignment="Left" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,240,*" Margin="0,0,0,4">
+                                    <TextBlock Grid.Column="0" Text="PDF 全文转 Markdown 引擎:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding PdfEngineOptions}" SelectedItem="{Binding Settings.PdfExtractionEngine}" />
+                                    <TextBlock Grid.Column="2" Text="PdfPig 为 C# 原生跨平台双栏排版引擎（毫秒级）；Auto 为优先 PdfPig 失败回退 anydoc。" VerticalAlignment="Center" Foreground="#059669" FontSize="12" Margin="12,0,0,0" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 2: LLM API & Fine-Grained Hyperparameters -->
+                        <Border Background="#FFFFFF" CornerRadius="10" Padding="20" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,16">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                                    <TextBlock Grid.Column="0" Text="2. LLM 模型接口与输出精细控制参数 (Hyperparameters)" FontSize="15.5" FontWeight="Bold" Foreground="#0369A1" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="🔌 测试 LLM 接口连通性" Command="{Binding TestLlmConnectionCommandCommand}" Classes="secondary" Foreground="#0369A1" BorderBrush="#7DD3FC" Background="#E0F2FE" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,*,140,260" Margin="0,0,0,10">
+                                    <TextBlock Grid.Column="0" Text="API 端点 (Base URL):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.ApiUrl}" FontSize="13" />
+
+                                    <TextBlock Grid.Column="2" Text="模型名称 (Model):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <TextBox Grid.Column="3" Text="{Binding Settings.ModelName}" FontSize="13" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,*" Margin="0,0,0,14">
+                                    <TextBlock Grid.Column="0" Text="API Key:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.ApiKey}" FontSize="13" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,100,150,100,170,110,140,*" Margin="0,0,0,12">
+                                    <TextBlock Grid.Column="0" Text="温度 (Temperature):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.Temperature}" />
+
+                                    <TextBlock Grid.Column="2" Text="核采样 (Top-P):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <TextBox Grid.Column="3" Text="{Binding Settings.TopP}" />
+
+                                    <TextBlock Grid.Column="4" Text="最大输出 (MaxTokens):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <TextBox Grid.Column="5" Text="{Binding Settings.MaxTokens}" />
+
+                                    <TextBlock Grid.Column="6" Text="超时时间 (秒):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <TextBox Grid.Column="7" Text="{Binding Settings.RequestTimeoutSeconds}" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,100,150,100,170,130,140,*" Margin="0,0,0,6">
+                                    <TextBlock Grid.Column="0" Text="存在惩罚 (Presence):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <TextBox Grid.Column="1" Text="{Binding Settings.PresencePenalty}" />
+
+                                    <TextBlock Grid.Column="2" Text="频率惩罚 (Frequency):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <TextBox Grid.Column="3" Text="{Binding Settings.FrequencyPenalty}" />
+
+                                    <TextBlock Grid.Column="4" Text="推理强度 (Reasoning):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <ComboBox Grid.Column="5" ItemsSource="{Binding ReasoningOptions}" SelectedItem="{Binding Settings.ReasoningEffort}" />
+
+                                    <TextBlock Grid.Column="6" Text="单篇最大读取字数:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" Margin="16,0,0,0" />
+                                    <TextBox Grid.Column="7" Text="{Binding Settings.MaxCharsPerPaper}" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="205,360" Margin="0,8,0,0">
+                                    <TextBlock Grid.Column="0" Text="生成语言与术语规范:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#475569" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding Settings.OutputLanguage}" Width="350" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 3: Prompts -->
+                        <Border Background="#FFFFFF" CornerRadius="10" Padding="20" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,0,0,16">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                                    <TextBlock Grid.Column="0" Text="3. 高阶学术提示词 (Prompt) 定制与调优" FontSize="15.5" FontWeight="Bold" Foreground="#0369A1" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="↺ 恢复内置高阶学术提示词" Command="{Binding ResetPromptsToDefaultCommand}" Classes="secondary" />
+                                </Grid>
+
+                                <TextBlock Text="① 知识图谱、文献对话网络与学科演进拓扑 System Prompt (返回规范 JSON):" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,6" />
+                                <TextBox Text="{Binding Settings.PromptKnowledgeGraph}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="150"
+                                         Margin="0,0,0,14" FontSize="12.5" />
+
+                                <TextBlock Text="② 文献计量 (OpenAlex)、共现词网络与主题建模分析 System Prompt:" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,6" />
+                                <TextBox Text="{Binding Settings.PromptBibliometricAnalysis}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="150"
+                                         Margin="0,0,0,14" FontSize="12.5" />
+
+                                <TextBlock Text="③ 深度文献综述与综合对照矩阵 System Prompt:" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,6" />
+                                <TextBox Text="{Binding Settings.PromptLiteratureReview}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="150"
+                                         Margin="0,0,0,16" FontSize="12.5" />
+
+                                <Button Content="💾 保存全部配置与提示词" Command="{Binding SaveSettingsCommandCommand}" Classes="primary" HorizontalAlignment="Left" Padding="24,10" FontSize="13.5" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- VIEW 5: EXECUTION LOGS -->
+                <Grid IsVisible="{Binding IsView5}" Margin="16">
+                    <Border Background="#FFFFFF" CornerRadius="10" BorderBrush="#CBD5E1" BorderThickness="1" Padding="14">
+                        <ListBox ItemsSource="{Binding ExecutionLogs}" Background="Transparent" Foreground="#1E293B" FontSize="13" />
+                    </Border>
+                </Grid>
+
+            </Grid>
+        </Grid>
+
+        <!-- FOOTER / STATUS BAR -->
+        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,1,0,0" Padding="20,8">
+            <Grid ColumnDefinitions="*,320">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="当前状态: " Foreground="#475569" FontWeight="SemiBold" FontSize="12.5" />
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#0369A1" FontWeight="Bold" FontSize="12.5" />
+                </StackPanel>
+
+                <ProgressBar Grid.Column="1" Value="{Binding ProcessingProgress}" Maximum="100" Height="10"
+                             Background="#E2E8F0" Foreground="#0284C7" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
